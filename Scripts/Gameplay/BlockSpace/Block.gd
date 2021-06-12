@@ -65,12 +65,12 @@ func update_adj_neighbors():
 		
 		#if neighbor is on the same X axis and share the same color
 		if (neighbor.position.x == self.position.x) && (neighbor.color == self.color):
-			if neighbor.falling == false:
+			if neighbor.falling == false && neighbor.paralyzed == false:
 				y_adj_neighbors.append(neighbor)
 		
 		#if neighbor is on the same Y axis and share the same color
 		elif (neighbor.position.y == self.position.y) && (neighbor.color == self.color):
-			if neighbor.falling == false:
+			if neighbor.falling == false && neighbor.paralyzed == false:
 				x_adj_neighbors.append(neighbor)
 		
 	get_node("xNeighbors").set_text( "X:" + str(x_adj_neighbors.size()))

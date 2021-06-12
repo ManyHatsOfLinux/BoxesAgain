@@ -230,6 +230,7 @@ func _ready():
 	print("BoardReady")
 	randomize()
 
+
 	spawn_starting_blocks()
 
 func _process(delta):
