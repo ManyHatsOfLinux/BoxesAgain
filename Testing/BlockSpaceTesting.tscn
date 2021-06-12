@@ -1,8 +1,18 @@
-[gd_scene load_steps=2 format=2]
+[gd_scene load_steps=3 format=2]
 
 [ext_resource path="res://Scenes/Gameplay/BlockSpace/BlockSpace.tscn" type="PackedScene" id=1]
+[ext_resource path="res://Assets/Textures/BlockSpace/ferretwizardremake1.png" type="Texture" id=2]
 
 [node name="BlocikSpaceTesting" type="Node2D"]
 
 [node name="BlockSpace" parent="." instance=ExtResource( 1 )]
 position = Vector2( 762.36, 879.373 )
+
+[node name="TextureRect" type="TextureRect" parent="."]
+margin_right = 40.0
+margin_bottom = 40.0
+rect_scale = Vector2( 1.6, 1.6 )
+texture = ExtResource( 2 )
+__meta__ = {
+"_edit_use_anchors_": false
+}

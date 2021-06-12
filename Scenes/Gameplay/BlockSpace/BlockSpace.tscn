@@ -4,6 +4,7 @@
 [ext_resource path="res://Scripts/Gameplay/BlockSpace/BlockSpace.gd" type="Script" id=2]
 
 [node name="BlockSpace" type="Node2D"]
+z_index = 1
 script = ExtResource( 2 )
 StartingRows = 10
 

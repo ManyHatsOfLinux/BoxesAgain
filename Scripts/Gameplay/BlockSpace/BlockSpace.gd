@@ -186,7 +186,9 @@ func should_fall(Block):
 	var BlocksBelow : Array = getBlocksBelow(Block) 
 	var sizebelow : int = (BlocksBelow.size()*BlockSize)
 	
-	if sizebelow < (Block.position.y*-1) :
+	print(Block, "SizeBelow, " , sizebelow, " , y,", (Block.position.y*-1))
+	
+	if sizebelow != (Block.position.y*-1) :
 		return true
 	else:
 		return false
@@ -203,19 +205,21 @@ func check_for_falling():
 	var BlocksAlreadyFallen : Array = []
 	
 	for Block in BlockList:
-		if Block.paralyzed == false && BlocksAlreadyFallen.has(Block) == false: 
+		var x = Block.position.x
+		var y = Block.position.y
+		if Block.paralyzed == false && BlocksAlreadyFallen.has([x,y]) == false: 
 			#if block not already falling, And has no lower neighbors.
 			if  should_fall(Block) == true :
+				BlocksAlreadyFallen.append([x,y])
 				Block.fall()
-				BlocksAlreadyFallen.append(Block)
-			
-			
+				
+
 				#block is fallen mark all blocks above
 				var BlocksAbove = getBlocksAbove(Block)
 
 				for BlockX in BlocksAbove:
 						BlockX.fall()
-						BlocksAlreadyFallen.append(Block)
+						BlocksAlreadyFallen.append([BlockX.position.x,BlockX.position.y])
 						
 		
 
@@ -225,10 +229,7 @@ func check_for_falling():
 func _ready():
 	print("BoardReady")
 	randomize()
-	
-	#spawn_block(0,1,1)
-	#spawn_block(0,2,1)
-	#spawn_block(1,1,1)
+
 	spawn_starting_blocks()
 
 func _process(delta):

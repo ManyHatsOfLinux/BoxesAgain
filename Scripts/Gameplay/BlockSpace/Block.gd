@@ -49,6 +49,7 @@ func _paralyze():
 
 
 func fall():
+	print("           ",self, " Falling")
 	self.falling = true
 	self.position = Vector2(self.position.x,self.position.y + fallspeed)
 	pass
@@ -119,6 +120,8 @@ func _on_RealDeathTimer_Timeout_():
 	queue_free()
 
 func _process(delta):
-	update_adj_neighbors()
-	match_self()
+	if falling == false:
+		update_adj_neighbors()
+		match_self()
+	self.falling = false
 	pass
