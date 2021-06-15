@@ -7,6 +7,7 @@
 
 [node name="BlockSpace" parent="." instance=ExtResource( 1 )]
 position = Vector2( 762.36, 879.373 )
+StartingRows = 12
 
 [node name="TextureRect" type="TextureRect" parent="."]
 margin_right = 40.0

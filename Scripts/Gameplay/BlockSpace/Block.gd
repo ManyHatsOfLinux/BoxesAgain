@@ -5,18 +5,27 @@ var color : int
 var paralyzed : bool = false 
 var DeathTimer
 var RealDeathTimer 
+var LabelChanged : bool = false
 var lastInLine : bool = false
 var ReadyToDie : bool = false
 var falling : bool = false
 var BlockSize : int = 0 
 var fallspeed = 2
 
+
 var ShouldFall = false
 
+#for block UI thing
 var x_adj_neighbors : Array = []
 var y_adj_neighbors : Array = []
+var xLabelString : String = "X: "
+var yLabelString : String = "Y: "
 
 onready var mySprite = get_node("Sprite")
+
+onready var xLabelNode = get_node("xNeighbors")
+onready var yLabelNode = get_node("yNeighbors")
+
 
 signal Paralyze(block)
 
@@ -48,53 +57,27 @@ func _paralyze():
 
 
 
+
+
 func fall():
-	print("           ",self, " Falling")
+	#print("           ",self, " Falling")
 	self.falling = true
 	self.position = Vector2(self.position.x,self.position.y + fallspeed)
-	pass
 
 
-func update_adj_neighbors():
-	#reset neighbor variables
-	x_adj_neighbors = []
-	y_adj_neighbors = []
-	
-	#loop though all blocks touching this block.
-	for neighbor in get_overlapping_areas():
+
+
+
+func update_labels(xlabel : String ,ylabel : String) -> void :
 		
-		#if neighbor is on the same X axis and share the same color
-		if (neighbor.position.x == self.position.x) && (neighbor.color == self.color):
-			if neighbor.falling == false && neighbor.paralyzed == false:
-				y_adj_neighbors.append(neighbor)
-		
-		#if neighbor is on the same Y axis and share the same color
-		elif (neighbor.position.y == self.position.y) && (neighbor.color == self.color):
-			if neighbor.falling == false && neighbor.paralyzed == false:
-				x_adj_neighbors.append(neighbor)
-		
-	get_node("xNeighbors").set_text( "X:" + str(x_adj_neighbors.size()))
-	get_node("yNeighbors").set_text( "Y:" + str(y_adj_neighbors.size()))
-
-
-
-
-func match_self():
-	if self.falling == false:
-		if x_adj_neighbors.size() == 2:
-			self._paralyze()
-			for x in x_adj_neighbors:
-				x._paralyze()
-	
-		if y_adj_neighbors.size() == 2:
-			self._paralyze()
-			for y in y_adj_neighbors:
-				y._paralyze()
-
+	xLabelNode.set_text( "X:" + xlabel)
+	yLabelNode.set_text( "Y:" + str(y_adj_neighbors.size()))
 
 
 
 func killTimer(time: float, RealTime: float):
+	
+	
 	DeathTimer = Timer.new()
 	DeathTimer.connect("timeout", self, "_on_DeathTimer_Timeout_")
 	DeathTimer.set_wait_time(time)
@@ -109,6 +92,8 @@ func killTimer(time: float, RealTime: float):
 	DeathTimer.start()
 	RealDeathTimer.start()
 
+
+
 func _on_DeathTimer_Timeout_():
 	mySprite.modulate = Color(1,1,1,0)
 	DeathTimer.stop()
@@ -119,9 +104,14 @@ func _on_DeathTimer_Timeout_():
 func _on_RealDeathTimer_Timeout_():
 	queue_free()
 
+
+
 func _process(delta):
-	if falling == false:
-		update_adj_neighbors()
-		match_self()
-	self.falling = false
-	pass
+	#update labels if necessary
+	if LabelChanged == true: 
+		update_labels(xLabelString,yLabelString)	
+		LabelChanged = false
+		
+		
+	if falling == true: 
+		fall()

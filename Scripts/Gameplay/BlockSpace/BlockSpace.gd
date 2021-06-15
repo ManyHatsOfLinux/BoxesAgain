@@ -5,14 +5,17 @@ export (int) var BlockSize = 64
 export (int) var StartingRows = 7
 export (int) var BlockSpaceHeight = 12
 export (int) var BlockSpaceWidth = 6
-export (int) var DeathDelayMax = 1
+export (int) var DeathDelayMax = 4
+
+var fps : float = 0
+var FrameCount : int = 0
 
 #multiplies with the number of blocks destroying
-export (float) var DeathDelay = .2
+export (float) var DeathDelay = .15
 
 var BlockParent = preload("res://Scenes/Gameplay/BlockSpace/Block.tscn")
 
-
+onready var FPSLabel = get_node("FPSCount")   
 
 #
 var ParalyzedBlocks = []
@@ -69,7 +72,21 @@ class BlockSort:
 		else: 
 			return false
 		
-
+	static func sort_columns_then_rows(block1,block2):
+		#if block is higher up
+		if block1.position.x > block2.position.x :
+			return true
+		#if block is on same row
+		elif block1.position.x == block2.position.x:
+			#block is same row, but further to the left.
+			if block1.position.y > block2.position.y:
+				return true
+			#block was further to the right
+			else: 
+				return false
+		#block was higher.
+		else: 
+			return false
 
 
 
@@ -114,28 +131,7 @@ func _on_block_paralyzed(block):
 
 
 
-#start blocks kill timer.
-func MarkTheDead():
-	var DeathDelayinc : float = DeathDelay 
-	
-	if ParalyzedBlocks.size() > 0:
-		for x in range(ParalyzedBlocks.size()):
-			var block = ParalyzedBlocks[x]
-			var RealDeathDelay = (DeathDelay*2) + (DeathDelay*ParalyzedBlocks.size())
-			
-			
-			#incremebent delay incremembet if not past the max
-			if DeathDelayinc < DeathDelayMax:
-				DeathDelayinc = DeathDelay + DeathDelayinc
 
-			#
-			if RealDeathDelay > DeathDelayMax:
-				RealDeathDelay = (DeathDelayMax)
-
-			block.killTimer(DeathDelayinc, RealDeathDelay)
-	
-		print("Marked ", ParalyzedBlocks.size(), " Blocks.")
-		ParalyzedBlocks = []
 
 
 
@@ -184,11 +180,24 @@ func getBlocksBelow(Block1) -> Array:
 
 func should_fall(Block):
 	var BlocksBelow : Array = getBlocksBelow(Block) 
-	var sizebelow : int = (BlocksBelow.size()*BlockSize)
+	var sizebelow : int = 0
+	var block_y : int = Block.position.y*-1
+
 	
-	print(Block, "SizeBelow, " , sizebelow, " , y,", (Block.position.y*-1))
+	#dont fall though paralized blocks
+	for Block2 in BlocksBelow:
+		#reset here
+		if Block2.paralyzed == true:
+			
+			
+			sizebelow = (Block2.position.y * -1) + BlockSize
+			
+		#continue incrememnting
+		else:
+			sizebelow = sizebelow + BlockSize
 	
-	if sizebelow != (Block.position.y*-1) :
+	
+	if sizebelow != block_y :
 		return true
 	else:
 		return false
@@ -201,27 +210,133 @@ func check_for_falling():
 	var BlockList : Array = (get_tree().get_nodes_in_group("Blocks"))
 	BlockList.sort_custom(BlockSort, "sort_buttom_to_top_left_to_right")
 	
-	#keep track of blocks already checked
-	var BlocksAlreadyFallen : Array = []
+	
 	
 	for Block in BlockList:
-		var x = Block.position.x
-		var y = Block.position.y
-		if Block.paralyzed == false && BlocksAlreadyFallen.has([x,y]) == false: 
+		Block.falling = false
+		
+		if Block.paralyzed == false : 
 			#if block not already falling, And has no lower neighbors.
 			if  should_fall(Block) == true :
-				BlocksAlreadyFallen.append([x,y])
-				Block.fall()
+				Block.falling = true
 				
 
-				#block is fallen mark all blocks above
-				var BlocksAbove = getBlocksAbove(Block)
 
-				for BlockX in BlocksAbove:
-						BlockX.fall()
-						BlocksAlreadyFallen.append([BlockX.position.x,BlockX.position.y])
-						
+
+func ParalizeMatchingBlocks():
+	
+	#store all blocks in array listen Horizontally
+	var HBlockList : Array = (get_tree().get_nodes_in_group("Blocks"))
+	HBlockList.sort_custom(BlockSort, "sort_buttom_to_top_left_to_right")
+	
+	var VBlockList : Array = (get_tree().get_nodes_in_group("Blocks"))
+	VBlockList.sort_custom(BlockSort, "sort_columns_then_rows")
+
+
+	
+	var currentRow : int = 0
+	var currentColumn : int = 0
+	var lastHColorSeen : int = -1
+	var lastVColorSeen : int = -1
+	var lastX : int = 10000
+	var lastY : int = 10000
+	
+	
+	#list of blocks sharing same color on this row
+	var Hmatchlist : Array = []
+	var Vmatchlist : Array = []
+	
+	for z in range(HBlockList.size()):
+		var Hblock = HBlockList[z]
+		var Vblock = VBlockList[z]
 		
+		var h_x = Hblock.position.x
+		var h_y = Hblock.position.y
+		
+		var v_x = Vblock.position.x
+		var v_y = Vblock.position.y
+		
+		
+		
+		
+		#reset row if color changed or on new row
+		if h_y != currentRow or lastHColorSeen != Hblock.color or (h_x - lastX) != 64 or Hblock.paralyzed == true or Hblock.falling == true:
+			Hmatchlist = []
+		currentRow = h_y
+		lastHColorSeen = Hblock.color
+		lastX = h_x
+		
+		#reset colum matches if on new column
+		if v_x != currentColumn or lastVColorSeen != Vblock.color or (v_y - lastY) != -64 or Vblock.paralyzed == true or Vblock.falling == true:
+			Vmatchlist = []
+		currentColumn = v_x 
+		lastVColorSeen = Vblock.color
+		lastY = v_y
+		
+		#add current block
+
+		Hmatchlist.append(Hblock)
+
+		Vmatchlist.append(Vblock)
+			
+			
+		#if matchcount 3 or mroe
+		if Hmatchlist.size() == 3:
+			for HBlock2 in Hmatchlist:
+				if ParalyzedBlocks.has(HBlock2) == false:
+					ParalyzedBlocks.append(HBlock2)
+
+		elif Hmatchlist.size() > 3:
+			if ParalyzedBlocks.has(Hblock) == false:
+				ParalyzedBlocks.append(Hblock)
+
+				
+		#if matchcount 3
+		if Vmatchlist.size() == 3:
+			for VBlock2 in Vmatchlist:
+				if ParalyzedBlocks.has(VBlock2) == false:
+					ParalyzedBlocks.append(VBlock2)
+				
+		elif Vmatchlist.size() > 3:
+			if ParalyzedBlocks.has(Vblock) == false:
+				ParalyzedBlocks.append(Vblock)
+
+
+	StartBlockKillTimers()
+	
+
+
+
+#start blocks kill timer.
+func StartBlockKillTimers():
+	var DeathDelayinc : float = DeathDelay 
+	
+	ParalyzedBlocks.sort_custom(BlockSort, "sort_top_to_buttom_left_to_right")
+	print(ParalyzedBlocks)
+	
+	if ParalyzedBlocks.size() > 0:
+		for x in range(ParalyzedBlocks.size()):
+			
+			if ParalyzedBlocks[x].paralyzed == false:
+				var block = ParalyzedBlocks[x]
+				block._paralyze()
+			
+				var RealDeathDelay = (DeathDelay*2) + (DeathDelay*ParalyzedBlocks.size())
+			
+			
+				#incremebent delay incremembet if not past the max
+				if DeathDelayinc < DeathDelayMax:
+					DeathDelayinc = DeathDelay + DeathDelayinc
+
+			#
+				if RealDeathDelay > DeathDelayMax:
+					RealDeathDelay = (DeathDelayMax)
+
+				block.killTimer(DeathDelayinc, RealDeathDelay)
+	
+		print("Marked ", ParalyzedBlocks.size(), " Blocks.")
+		ParalyzedBlocks = []
+
 
 
 
@@ -231,13 +346,37 @@ func _ready():
 	randomize()
 
 
+
+	#spawn_block(0,0,1)	
+	#spawn_block(0,1,1)
+	#spawn_block(0,2,1)
+	#spawn_block(0,3,0)
 	spawn_starting_blocks()
 
-func _process(delta):
-	#print("BoardProcessStart")
-	#all blocks that are matching get 
-	MarkTheDead()
 
+
+
+
+func _process(delta):
+	print("Frame Passed")
+	
+
+	#find matching blocks
+	ParalizeMatchingBlocks()	
+	
 	#check for falling
 	check_for_falling()
 
+	
+	fps = (Engine.get_frames_per_second())
+	
+	if FrameCount == 1000:
+		FrameCount = 0
+	
+	FrameCount = FrameCount + 1
+	FPSLabel.set_text("FPS: " + String(fps) + " Frames Passed: " + String(FrameCount))
+
+
+
+
+	
