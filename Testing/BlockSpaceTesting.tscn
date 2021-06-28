@@ -6,8 +6,12 @@
 [node name="BlocikSpaceTesting" type="Node2D"]
 
 [node name="BlockSpace" parent="." instance=ExtResource( 1 )]
-position = Vector2( 762.36, 879.373 )
-StartingRows = 12
+position = Vector2( 444.833, 941.71 )
+playernum = 1
+
+[node name="BlockSpace2" parent="." instance=ExtResource( 1 )]
+position = Vector2( 935.049, 991.541 )
+playernum = 2
 
 [node name="TextureRect" type="TextureRect" parent="."]
 margin_right = 40.0

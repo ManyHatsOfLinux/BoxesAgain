@@ -16,7 +16,7 @@ shape = SubResource( 1 )
 scale = Vector2( 0.5, 0.5 )
 texture = ExtResource( 1 )
 
-[node name="yNeighbors" type="Label" parent="."]
+[node name="yLabel" type="Label" parent="."]
 margin_left = -12.7955
 margin_top = -30.0
 margin_right = 11.2045
@@ -27,7 +27,7 @@ __meta__ = {
 "_edit_use_anchors_": false
 }
 
-[node name="xNeighbors" type="Label" parent="."]
+[node name="xLabel" type="Label" parent="."]
 margin_left = 10.4156
 margin_top = -7.68664
 margin_right = 28.4156
@@ -37,4 +37,3 @@ align = 1
 __meta__ = {
 "_edit_use_anchors_": false
 }
-[connection signal="area_entered" from="." to="." method="_on_Block_area_entered"]
