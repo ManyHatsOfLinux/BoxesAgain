@@ -1,13 +1,15 @@
 extends Area2D
 
 
+onready var playernum = get_parent().playernum
+
 #used in matching
 var color : int 
 
-
 #pixels to fall per call to _fall()
-var fallspeed : int = 2
+var fallspeed : int = 4
 
+var swapspeed : int = 4
 
 #used to store block size (default 1x1)
 var width: int = 1
@@ -52,9 +54,13 @@ var is_falling : bool = false
 var timers_started : bool = false
 
 
+#left is 0, right is 1
+var SwapDirection : bool = 0
+
+
 #to store itself
 onready var mySprite = get_node("Sprite")
- 
+
 
 #kinda backwards but okay.
 func _get_state_string() -> String:
@@ -79,86 +85,92 @@ func _update_labels(xlabel : String ,ylabel : String) -> void :
 	get_node("yLabel").set_text(ylabel)
 
 
-#get blocks around
-func _update_neighbors():
-	var BlockArray = (get_parent().get_surrounding_blocks(self))
-	
-	BlocksLEFT  = BlockArray[0]
-	BlocksDOWN  = BlockArray[1]
-	BlocksRIGHT = BlockArray[2]
-	BlocksUP    = BlockArray[3]
-
-
 #ahhhhhhh...
 func _start_falling():
 	state = FALLING
-	is_falling = true
-	_fall()
 
 
 #hhhh!....splat
 func _stop_falling():
-	is_falling = false
+	self.add_to_group("DoneFalling" + str(playernum))
 
 
-#set the new state
+#weeeee
+func _fall():
+	self.position = Vector2(self.position.x,self.position.y + fallspeed)
+	is_falling = true
+
+#lazy blocks
 func _start_idleing():
 	state = IDLE
 
 
 #no going back from here
 func _start_matching():
-	
+	state = MATCHED
+
+
+func _dim():
 	#dim the block
 	mySprite.modulate = Color(1,1,1,0.5)
 
-	state = MATCHED
 
-#weeeee
-func _fall():
-	#push block down by int(fallspeed) pixels
-	self.position = Vector2(self.position.x,self.position.y + fallspeed)
+#block is not matched or swapping
+func _can_fall() -> bool:
+	#if matched or swapping
+	if timers_started or state == SWAPPING:
+		#cannot fall
+		return false
+	#can fall
+	return true
 
 
 #returns true if blocks below dont add up to itself.
 func _should_fall() -> bool :
 	
-	var sizebelow : int = 0
-	var block_y : int = self.position.y*-1
+	if _can_fall():
+	
+		var sizebelow : int = 0
+		var block_y : int = self.position.y*-1
+		
 
 	
-	#loop through blocks below and increment sizebelow see if there is space
-	#between this blocks and 0 thats not blocks.
-	for Block2 in BlocksDOWN:
-	
-		#dont fall though paralized blocks	sizebelow reset here
-		if Block2.state == MATCHED:
+		#loop through blocks below and increment sizebelow see if there is space
+		#between this blocks and 0 thats not blocks.
+		for Block in range(BlocksDOWN.size()-1,-1,-1):
 			
-			sizebelow = (Block2.position.y * -1) + BlockSize
+			var Block2 = BlocksDOWN[Block]
 			
-		#continue incrememnting
-		else:
-			sizebelow = sizebelow + BlockSize
-	
-	
-	if sizebelow != block_y :
-		return true
-	else:
-		return false
+			#dont fall though paralized blocks	sizebelow reset here
+			if Block2.state == MATCHED:
+				
+				#if (Block2.position.y * -1) + BlockSize > sizebelow:
+					sizebelow = (Block2.position.y * -1) + BlockSize
+					
+				
+			#continue incrememnting
+			else:
+				sizebelow = sizebelow + BlockSize
+				
+		
+		
+		if sizebelow != block_y :
+			return true
+
+	return false
+
 
 #returns true if not falling or matchign, or swapping
 func _can_match() -> bool:
-	if [SWAPPING].has(state) or timers_started or is_falling :
+	if [SWAPPING,FALLING].has(state) or timers_started or is_falling :
 		return false
 	return true
 
 
 #returns true or false depending on if in a match
 func _should_match() -> bool:
-	
-	#keep count of matching surroudning blocks
-	var matchedBlocks : int = 0
-	
+
+
 	#if this block is not falling swapping or already matching
 	if _can_match():
 	
@@ -166,8 +178,8 @@ func _should_match() -> bool:
 		#two2left
 		#so long as at least two blocks are to the left.
 		if BlocksLEFT.size() > 1:
-			var LBlock1 = BlocksLEFT[BlocksLEFT.size() - 1]
-			var LBlock2 = BlocksLEFT[BlocksLEFT.size() - 2]
+			var LBlock1 = BlocksLEFT[0]
+			var LBlock2 = BlocksLEFT[1]
 			var Lpos1 = LBlock1.position.x
 			var Lpos2 = LBlock2.position.x
 			var selfpos = self.position.x
@@ -182,7 +194,7 @@ func _should_match() -> bool:
 		#both array's must have at least 1 block to check for this
 		if BlocksLEFT.size() >= 1 && BlocksRIGHT.size() >= 1 : 
 			
-			var LBlock = BlocksLEFT[BlocksLEFT.size() - 1]
+			var LBlock = BlocksLEFT[0]
 			var RBlock = BlocksRIGHT[0]
 			var Lpos = LBlock.position.x
 			var Rpos = RBlock.position.x
@@ -204,6 +216,7 @@ func _should_match() -> bool:
 			var Rpos1 = RBlock1.position.x
 			var Rpos2 = RBlock2.position.x
 			var selfpos = self.position.x
+			
 			
 			if RBlock1.color == self.color && self.color == RBlock2.color \
 			&& Rpos1 == (selfpos + BlockSize) && Rpos2 == (selfpos + (BlockSize*2))\
@@ -231,7 +244,7 @@ func _should_match() -> bool:
 		if BlocksUP.size() >= 1 && BlocksDOWN.size() >= 1 : 
 			
 			var UBlock = BlocksUP[0]
-			var DBlock = BlocksDOWN[BlocksDOWN.size() - 1]
+			var DBlock = BlocksDOWN[0]
 			var Upos = UBlock.position.y  * -1
 			var Dpos = DBlock.position.y  * -1
 			var selfpos = self.position.y * -1
@@ -245,8 +258,8 @@ func _should_match() -> bool:
 		#twobelow 
 		if BlocksDOWN.size() > 1 : 
 			
-			var DBlock1 = BlocksDOWN[BlocksDOWN.size() - 1]
-			var DBlock2 = BlocksDOWN[BlocksDOWN.size() - 2]
+			var DBlock1 = BlocksDOWN[0]
+			var DBlock2 = BlocksDOWN[1]
 			var Dpos1 = DBlock1.position.y  * -1
 			var Dpos2 = DBlock2.position.y  * -1
 			var selfpos = self.position.y   * -1
@@ -260,6 +273,154 @@ func _should_match() -> bool:
 	return false
 
 
+#use raycasts to get neighboring blocks
+func _get_neighbors()->void:
+	
+	#reset arrays
+	BlocksLEFT  = []
+	BlocksRIGHT = []
+	BlocksDOWN  = []
+	BlocksUP    = []
+
+
+	#LEFT
+	var LeftRay1 = get_node("LeftRay1")
+	var LBlock1 = LeftRay1.get_collider()
+	var LeftRay2 = get_node("LeftRay2")
+	if LBlock1 :
+		LeftRay2.add_exception(LBlock1)
+		LeftRay2.force_raycast_update()
+	var LBlock2 = LeftRay2.get_collider()
+	
+	for LBlock in [LBlock1,LBlock2] :
+		if LBlock:
+			BlocksLEFT.append(LBlock)
+	
+	
+	#RIGHT
+	var RightRay1 = get_node("RightRay1")
+	var RBlock1 = RightRay1.get_collider()
+	
+	var RightRay2 = get_node("RightRay2")
+	if RBlock1 :
+		RightRay2.add_exception(RBlock1)
+		RightRay2.force_raycast_update()
+	var RBlock2 = RightRay2.get_collider()
+
+	for RBlock in [RBlock1,RBlock2] :
+		if RBlock:
+			BlocksRIGHT.append(RBlock)
+	
+	
+	#UP
+	var UpRay1 = get_node("UpRay1")
+	var UBlock1 = UpRay1.get_collider()
+	var UpRay2 = get_node("UpRay2")
+	if UBlock1 :
+		UpRay2.add_exception(UBlock1)
+		UpRay2.force_raycast_update()
+	var UBlock2 = UpRay2.get_collider()
+	
+	for UBlock in [UBlock1,UBlock2] :
+		if UBlock:
+			BlocksUP.append(UBlock)
+	
+	
+	#DOWN
+	var DownRay1  = get_node("DownRay1")
+	var DownRay2  = get_node("DownRay2")
+	var DownRay3  = get_node("DownRay3")
+	var DownRay4  = get_node("DownRay4")
+	var DownRay5  = get_node("DownRay5")
+	var DownRay6  = get_node("DownRay6")
+	var DownRay7  = get_node("DownRay7")
+	var DownRay8  = get_node("DownRay8")
+	var DownRay9  = get_node("DownRay9")
+	var DownRay10 = get_node("DownRay10")
+	var DownRay11 = get_node("DownRay11")
+	
+	var DBlocks : Array = []
+	
+	var DBlock1 = DownRay1.get_collider()
+	
+	if DBlock1 :
+		DBlocks.append(DBlock1)
+		for DBlock in DBlocks:
+			DownRay2.add_exception(DBlock)
+		DownRay2.force_raycast_update()
+	var DBlock2 = DownRay2.get_collider()
+	
+	
+	if DBlock2 && DBlock1 != DBlock2:
+		DBlocks.append(DBlock2)
+		for DBlock in DBlocks:
+			DownRay3.add_exception(DBlock)
+		DownRay3.force_raycast_update()
+	var DBlock3 = DownRay3.get_collider()
+
+	if DBlock3 && DBlock2 != DBlock3:
+		DBlocks.append(DBlock3)
+		for DBlock in DBlocks:
+			DownRay4.add_exception(DBlock)
+		DownRay4.force_raycast_update()
+	var DBlock4 = DownRay4.get_collider()
+
+	if DBlock4 && DBlock3 != DBlock4:
+		DBlocks.append(DBlock4)
+		for DBlock in DBlocks:
+			DownRay5.add_exception(DBlock)
+		DownRay5.force_raycast_update()
+	var DBlock5 = DownRay5.get_collider()
+
+	if DBlock5 && DBlock4 != DBlock5:
+		DBlocks.append(DBlock5)
+		for DBlock in DBlocks:
+			DownRay6.add_exception(DBlock)
+		DownRay6.force_raycast_update()
+	var DBlock6 = DownRay6.get_collider()
+
+	if DBlock6 && DBlock5 != DBlock6:
+		DBlocks.append(DBlock6)
+		for DBlock in DBlocks:
+			DownRay7.add_exception(DBlock)
+		DownRay7.force_raycast_update()
+	var DBlock7 = DownRay7.get_collider()
+
+	if DBlock7 && DBlock6 != DBlock7:
+		DBlocks.append(DBlock7)
+		for DBlock in DBlocks:
+			DownRay8.add_exception(DBlock)
+		DownRay8.force_raycast_update()
+	var DBlock8 = DownRay8.get_collider()
+	
+	if DBlock8 && DBlock7 != DBlock8:
+		DBlocks.append(DBlock8)
+		for DBlock in DBlocks:
+			DownRay9.add_exception(DBlock)
+		DownRay9.force_raycast_update()
+	var DBlock9 = DownRay9.get_collider()
+
+	if DBlock9 && DBlock8 != DBlock9:
+		DBlocks.append(DBlock9)
+		for DBlock in DBlocks:
+			DownRay10.add_exception(DBlock)
+		DownRay10.force_raycast_update()
+	var DBlock10 = DownRay10.get_collider()
+
+	if DBlock10 && DBlock9 != DBlock10:
+		DBlocks.append(DBlock10)
+		for DBlock in DBlocks:
+			DownRay11.add_exception(DBlock)
+		DownRay11.force_raycast_update()
+	var DBlock11 = DownRay11.get_collider()
+
+
+	for DBlock in DBlocks :
+		#if block exists and it not already in list
+		if DBlock && BlocksDOWN.has(DBlock) == false:
+			BlocksDOWN.append(DBlock)
+
+
 #turn the block invisible
 func _on_DeathTimer_Timeout_():
 	#turn invisible
@@ -269,6 +430,7 @@ func _on_DeathTimer_Timeout_():
 #destroy the block
 func _on_RealDeathTimer_Timeout_():
 	queue_free()
+
 
 #blocks turns invisible after time, dies after RealTime
 func _start_death_timers():
@@ -283,12 +445,13 @@ func _start_death_timers():
 	var localpos = get_parent().ParaliyzedBlocks.find(self)
 	
 	var DeathDelay = get_parent().DeathDelay
+	var DeathDelayMax = get_parent().DeathDelayMax
 	var time = (localpos + 1) * DeathDelay
 	var RealTime = (total + 1) * DeathDelay
 	
 	#set a cap on deathdelay
-	if RealTime > 2:
-		RealTime = 2
+	if RealTime > DeathDelayMax:
+		RealTime = DeathDelayMax
 	
 	var DeathTimer = Timer.new()
 	DeathTimer.connect("timeout", self, "_on_DeathTimer_Timeout_")
@@ -305,15 +468,39 @@ func _start_death_timers():
 	RealDeathTimer.start()
 
 
+func can_swap() -> bool:
+	if state == IDLE:
+		return true
+	return false
+
+
+func start_swapping(NewSwapDirection : bool) -> void:
+		state = SWAPPING
+		SwapDirection = NewSwapDirection
+
+func _is_done_swapping() -> bool:
+	if int(self.position.x) % BlockSize == 0:
+		return true
+	return false
+
+func _keep_swapping():
+	#going left
+	if SwapDirection == bool(0):
+		self.position = Vector2(self.position.x - swapspeed ,self.position.y)
+	#going right
+	else: 
+		self.position = Vector2(self.position.x + swapspeed ,self.position.y)
+
+
 func _process(delta):
 	
 	#update lists of neighbors
-	_update_neighbors()
+	_get_neighbors()
 	
 	#update state label for easier debug
 	_update_labels("0",_get_state_string())
 
-
+		
 	match state:
 		
 		#this game should be called lazy blocks
@@ -334,10 +521,10 @@ func _process(delta):
 			#still falling
 			if _should_fall():
 				_fall()
-			
-			elif _should_match() :
-				_stop_falling()
-				_start_matching()
+
+			#falling to matchign
+			#falling wont go atraight into matching because blocsk have processed
+			#already before the block will change its state
 			
 			#falling to idleing
 			else: 
@@ -348,13 +535,25 @@ func _process(delta):
 		MATCHED:
 			#matched and has not set its death timers yet...
 			if timers_started == false:
-				 _start_death_timers()
+				_dim()
+				_start_death_timers()
 			
 			
 		#block is swapping, could be matched, start falling, or become idle.
 		SWAPPING:
-			pass
-	
+			#pushes block over to left/right
+			_keep_swapping()
+			
+			#swapping is done, time to change state
+			if _is_done_swapping():
+				
+				#swapping to falling
+				if _should_fall():
+					_start_falling()
+				else:
+					_start_idleing()
+				
+
 
 
 

@@ -3,6 +3,9 @@ extends Node
 var xpos : int = 0
 var ypos : int = 0
 
+var height : int = 0
+var width : int = 0
+
 var playernum : int = 0 
 
 
@@ -28,7 +31,7 @@ func _input(ev):
 
 		#UP
 			if Input.is_action_just_pressed("ui_up"):
-				if ypos < 11:
+				if ypos < (height-1):
 					ypos = ypos + 1
 
 
@@ -44,14 +47,38 @@ func _input(ev):
 
 		#RIGHT
 			if Input.is_action_just_pressed("ui_right"):
-				if xpos <= 3:
+				if xpos < (width-2):
 					xpos = xpos + 1
-
+					
+		
+		#Space/Swap
+			if Input.is_action_just_pressed("ui_select"):
+				
+				#get left block
+				var LeftRay = get_node("LeftRay")
+				var LBlock = LeftRay.get_collider()
+				
+				#get right block
+				var RightRay = get_node("RightRay")
+				var RBlock = RightRay.get_collider()
+	
+				#if both blocks exist
+				if LBlock && LBlock.can_swap() && RBlock && RBlock.can_swap(): 
+					LBlock.start_swapping(bool(1))
+					RBlock.start_swapping(bool(0))
+				
+				#only left block exists.
+				elif RBlock == null && LBlock.can_swap():
+					LBlock.start_swapping(bool(1))
+				#only right block eixists
+				elif LBlock == null && RBlock.can_swap():
+					RBlock.start_swapping(bool(0))
+					
+					
 	if playernum == 2 :
-
 		#UP
 			if Input.is_action_just_pressed("ui_up2"):
-				if ypos < 11:
+				if ypos < (height-1):
 					ypos = ypos + 1
 
 				
@@ -67,7 +94,7 @@ func _input(ev):
 
 		#RIGHT
 			if Input.is_action_just_pressed("ui_right2"):
-				if xpos <= 3:
+				if xpos < (width-2):
 					xpos = xpos + 1
 
 func _process(delta):

@@ -5,17 +5,19 @@ export (int) var BlockSize = 64
 export (int) var StartingRows = 7
 export (int) var BlockSpaceHeight = 12
 export (int) var BlockSpaceWidth = 6
-export (int) var DeathDelayMax = 4
 export (int) var playernum = 0
 
 var previous_paralized_size : int = 0
 var current_paralized_size : int = 0
 
+
+
 var fps : float = 0
 var FrameCount : int = 0
 
 #multiplies with the number of blocks destroying
-export (float) var DeathDelay = .2
+export (float) var DeathDelay = .215
+export (float) var DeathDelayMax = 2
 
 var BlockParent = preload("res://Scenes/Gameplay/BlockSpace/Block.tscn")
 
@@ -29,8 +31,8 @@ var xcursor
 #for the different Block Types
 var BlockTextures = [
 	preload("res://Assets/Textures/Blocks/Blue Piece.png"),
-	preload("res://Assets/Textures/Blocks/Green Piece.png")
-	#preload("res://Assets/Textures/Blocks/Light Green Piece.png"),
+	preload("res://Assets/Textures/Blocks/Green Piece.png"),
+	preload("res://Assets/Textures/Blocks/Light Green Piece.png")
 	#preload("res://Assets/Textures/Blocks/Orange Piece.png"),
 	#preload("res://Assets/Textures/Blocks/Pink Piece.png"),
 	#preload("res://Assets/Textures/Blocks/Yellow Piece.png"),
@@ -104,6 +106,9 @@ func _spawn_cursor():
 	var xpos = (xcursor.xpos * BlockSize) + (BlockSize/2)
 	var ypos = (xcursor.ypos * BlockSize) * -1
 	
+	xcursor.width  = BlockSpaceWidth
+	xcursor.height = BlockSpaceHeight
+	
 	xcursor.position=Vector2(xpos,ypos)
 	
 	add_child(xcursor)
@@ -133,7 +138,13 @@ func _spawn_block(x: int, y: int, color: int) -> void:
 	block.position = Vector2(x,y)
 	block.BlockSize = BlockSize
 
-
+#remove is_falling from blocks that are done
+#running this here ensure all blocks stop falling in time 
+#to be matched against.
+func _stop_falling_blocks():
+	for Block in get_tree().get_nodes_in_group("DoneFalling"+ str(playernum) ):
+		Block.is_falling = false
+		Block.remove_from_group("DoneFalling" + str(playernum)) 
 
 func _spawn_starting_blocks() -> void:
 	for x in BlockSpaceWidth:
@@ -217,30 +228,35 @@ func _update_paraliyed_list():
 
 # Called when the node enters the scene tree for the first time.
 func _ready():
-	print("BoardReady")
+
+
 	randomize()
 
 	_spawn_cursor()
 	
-	if playernum == 1:
-		_spawn_block(0,1,0)	
-		_spawn_block(1,1,0)	
-		_spawn_block(2,2,0)	
-		_spawn_block(3,1,0)	
-	
 	if playernum == 2:
+		_spawn_block(0,1,0)	
+		_spawn_block(0,2,0)	
+		_spawn_block(0,3,0)	
+		
+		#_spawn_block(1,1,0)	
+		#_spawn_block(2,2,0)	
+		#_spawn_block(3,1,0)	
+		#_spawn_block(4,1,0)	
+	
+	if playernum == 1:
 		_spawn_starting_blocks()
 
 
-
-
-
 func _process(delta):
+
 	
 	#ensure list of paralyized blocks ais up to date
 	_update_paraliyed_list()
 
 	_update_cursor_position()
+
+	_stop_falling_blocks()
 
 	fps = (Engine.get_frames_per_second())
 	
