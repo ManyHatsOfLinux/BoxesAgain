@@ -8,6 +8,7 @@ var width : int = 0
 
 var playernum : int = 0 
 
+onready var SnapNode = get_node("Snap")
 
 # Called when the node enters the scene tree for the first time.
 func _ready():
@@ -21,7 +22,6 @@ func _update_labels(xlabel : String ,ylabel : String) -> void :
 		
 	get_node("xLabel").set_text(xlabel)
 	get_node("yLabel").set_text(ylabel)
-
 
 
 
@@ -54,6 +54,7 @@ func _input(ev):
 		#Space/Swap
 			if Input.is_action_just_pressed("ui_select"):
 				
+				
 				#get left block
 				var LeftRay = get_node("LeftRay")
 				var LBlock = LeftRay.get_collider()
@@ -63,16 +64,19 @@ func _input(ev):
 				var RBlock = RightRay.get_collider()
 	
 				#if both blocks exist
-				if LBlock && LBlock.can_swap() && RBlock && RBlock.can_swap(): 
+				if LBlock && LBlock.can_swap(bool(1)) && RBlock && RBlock.can_swap(bool(0)): 
 					LBlock.start_swapping(bool(1))
 					RBlock.start_swapping(bool(0))
+					SnapNode.play()
 				
 				#only left block exists.
-				elif RBlock == null && LBlock.can_swap():
+				elif RBlock == null && LBlock && LBlock.can_swap(bool(1)):
 					LBlock.start_swapping(bool(1))
+					SnapNode.play()
 				#only right block eixists
-				elif LBlock == null && RBlock.can_swap():
+				elif LBlock == null && RBlock && RBlock.can_swap(bool(0)):
 					RBlock.start_swapping(bool(0))
+					SnapNode.play()
 					
 					
 	if playernum == 2 :

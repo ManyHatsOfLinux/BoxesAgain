@@ -140,3 +140,17 @@ enabled = true
 cast_to = Vector2( 0, -128 )
 collision_mask = 8
 collide_with_areas = true
+
+[node name="ULRay" type="RayCast2D" parent="."]
+position = Vector2( -40, -40 )
+enabled = true
+cast_to = Vector2( -24, -24 )
+collision_mask = 8
+collide_with_areas = true
+
+[node name="URRay" type="RayCast2D" parent="."]
+position = Vector2( 40, -40 )
+enabled = true
+cast_to = Vector2( 24, -24 )
+collision_mask = 8
+collide_with_areas = true

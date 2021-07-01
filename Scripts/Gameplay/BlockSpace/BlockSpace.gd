@@ -10,7 +10,22 @@ export (int) var playernum = 0
 var previous_paralized_size : int = 0
 var current_paralized_size : int = 0
 
+enum {
+	
+	#not pushing board because of either matching or falling blocks
+	HALTED,
+	
+	#Only Swapping or IDLE happening, push board up.
+	PUSHING,
+	
+	#garbage block is piled on.
+	SHAKING,
+	
+	#you probably lost
+	DEAD
+}
 
+var state = HALTED
 
 var fps : float = 0
 var FrameCount : int = 0
@@ -18,6 +33,15 @@ var FrameCount : int = 0
 #multiplies with the number of blocks destroying
 export (float) var DeathDelay = .215
 export (float) var DeathDelayMax = 2
+
+
+#pixels the block is off its y axis by (for correcting fall...
+#calculations when blocks are being pushed)
+var yoffset : int = 0
+
+
+#pixels to push with every call to _push()
+export (int) var PushSpeed = 1
 
 var BlockParent = preload("res://Scenes/Gameplay/BlockSpace/Block.tscn")
 
@@ -32,11 +56,11 @@ var xcursor
 var BlockTextures = [
 	preload("res://Assets/Textures/Blocks/Blue Piece.png"),
 	preload("res://Assets/Textures/Blocks/Green Piece.png"),
-	preload("res://Assets/Textures/Blocks/Light Green Piece.png")
-	#preload("res://Assets/Textures/Blocks/Orange Piece.png"),
-	#preload("res://Assets/Textures/Blocks/Pink Piece.png"),
-	#preload("res://Assets/Textures/Blocks/Yellow Piece.png"),
-	#preload("res://Assets/Textures/Blocks/Black Piece.png")
+	preload("res://Assets/Textures/Blocks/Light Green Piece.png"),
+	preload("res://Assets/Textures/Blocks/Orange Piece.png"),
+	preload("res://Assets/Textures/Blocks/Pink Piece.png"),
+	preload("res://Assets/Textures/Blocks/Yellow Piece.png"),
+	preload("res://Assets/Textures/Blocks/Black Piece.png")
 ]
 
 
@@ -124,11 +148,20 @@ func _update_cursor_position():
 #to spawn blocks
 func _spawn_block(x: int, y: int, color: int) -> void:
 	
+	
 	var block = BlockParent.instance()
 	block.color = color
 	block.get_node("Sprite").set_texture(BlockTextures[color])
+	block.BlockSpaceHeight = BlockSpaceHeight
+	
+	#block was spawned underground
+	if y > 0:
+		block.state = 1
+	
 	add_child(block)
 	block.add_to_group("Blocks" + str(playernum))
+	
+
 	
 	#adjust for size of block
 	x = (x*BlockSize)
@@ -138,6 +171,20 @@ func _spawn_block(x: int, y: int, color: int) -> void:
 	block.position = Vector2(x,y)
 	block.BlockSize = BlockSize
 
+
+func _spawn_starting_blocks() -> void:
+	for x in BlockSpaceWidth:
+		for y in StartingRows:
+			var rand = floor(rand_range(0,BlockTextures.size()));
+			_spawn_block(x,y,rand)
+
+
+func _spawn_row():
+		for x in BlockSpaceWidth:
+			var rand = floor(rand_range(0,BlockTextures.size()));
+			_spawn_block(x,-1,rand)
+	
+
 #remove is_falling from blocks that are done
 #running this here ensure all blocks stop falling in time 
 #to be matched against.
@@ -146,11 +193,11 @@ func _stop_falling_blocks():
 		Block.is_falling = false
 		Block.remove_from_group("DoneFalling" + str(playernum)) 
 
-func _spawn_starting_blocks() -> void:
-	for x in BlockSpaceWidth:
-		for y in StartingRows:
-			var rand = floor(rand_range(0,BlockTextures.size()));
-			_spawn_block(x,y,rand)
+
+func _stop_swapping_blocks():
+	for Block in get_tree().get_nodes_in_group("SwappingDone"+ str(playernum) ):
+		Block.remove_from_group("SwappingDone")
+		Block.just_finished_swapping = false
 
 
 #returns 4 arrays, LEFT, DOWN, RIGHT, UP...like Vice the City weapons cheat.
@@ -207,9 +254,9 @@ func get_surrounding_blocks(Block) -> Array:
 	return([BlocksLEFT,BlocksDOWN,BlocksRIGHT,BlocksUP])
 
 
-func _update_paraliyed_list():
+func _update_paraliyed_list() -> void:
 	#store all blocks in array
-	var BlockList = (get_tree().get_nodes_in_group("Blocks" + str(playernum)))
+	var BlockList = (get_tree().get_nodes_in_group("MATCHED" + str(playernum)))
 	BlockList.sort_custom(BlockSort, "sort_top_to_bottom_left_to_right")
 	
 	#reset the list
@@ -217,13 +264,48 @@ func _update_paraliyed_list():
 	
 	for Block in BlockList: 
 		#block is in matched state, but has not had its timers start yet.
-		if int(Block.state) == 2 && Block.timers_started == false:
+		if Block.timers_started == false:
 			ParaliyzedBlocks.append(Block)
 	
 	if ParaliyzedBlocks.size() > 0:
 		if current_paralized_size != 0:
 			previous_paralized_size = current_paralized_size
 		current_paralized_size = ParaliyzedBlocks.size()
+
+
+func _is_anything_matching() -> bool:
+	if get_tree().get_nodes_in_group("MATCHED" + str(playernum)).size() > 0 :
+		return true
+	return false
+
+func _is_anything_falling() -> bool:
+	if get_tree().get_nodes_in_group("FALLING" + str(playernum)).size() > 0 :
+		return true
+	return false
+
+func _can_push()-> bool:
+	if _is_anything_falling() or _is_anything_matching() :
+		return false
+	return true
+
+#loop through all blocks and push up by PushSpeed pixels upward
+func _push():
+	
+	var BlockList = (get_tree().get_nodes_in_group("Blocks" + str(playernum)))
+	
+	for Block in BlockList:
+		Block.position = Vector2(Block.position.x,Block.position.y - PushSpeed)
+	
+	yoffset = yoffset + PushSpeed
+
+	if yoffset == 64:
+		_spawn_row()
+
+	#reset yoffset
+	if yoffset == BlockSize: 
+		yoffset = 0
+
+
 
 
 # Called when the node enters the scene tree for the first time.
@@ -234,29 +316,57 @@ func _ready():
 
 	_spawn_cursor()
 	
-	if playernum == 2:
-		_spawn_block(0,1,0)	
-		_spawn_block(0,2,0)	
-		_spawn_block(0,3,0)	
+	if playernum == 1:
+		_spawn_block(0,0,0)
+
+		_spawn_block(0,-1,1)
+	
+		#_spawn_row()
+
+		#_spawn_block(0,2,0)	
+		#_spawn_block(0,3,0)	
 		
 		#_spawn_block(1,1,0)	
 		#_spawn_block(2,2,0)	
 		#_spawn_block(3,1,0)	
 		#_spawn_block(4,1,0)	
 	
-	if playernum == 1:
+	if playernum == 2:
 		_spawn_starting_blocks()
+		_spawn_row()
 
 
 func _process(delta):
 
-	
 	#ensure list of paralyized blocks ais up to date
 	_update_paraliyed_list()
 
 	_update_cursor_position()
 
 	_stop_falling_blocks()
+
+	_stop_swapping_blocks()
+
+	match state:
+		
+		
+		HALTED:
+			#halted to push
+			if _can_push():
+				_push()
+				pass
+			pass
+		
+		PUSHING:
+			pass
+		
+		SHAKING:
+			pass
+		
+		DEAD:
+			pass
+
+
 
 	fps = (Engine.get_frames_per_second())
 	
@@ -265,5 +375,5 @@ func _process(delta):
 	
 	FrameCount = FrameCount + 1
 	#FPSLabel.set_text("FPS: " + String(fps) + " Frames Passed: " + String(FrameCount))
-	FPSLabel.set_text("CurrentPlist: " + String(current_paralized_size) + " Last Paraliyed List: " + String(previous_paralized_size))
+	FPSLabel.set_text(String(yoffset))
 

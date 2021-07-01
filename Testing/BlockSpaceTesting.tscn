@@ -1,12 +1,14 @@
-[gd_scene load_steps=3 format=2]
+[gd_scene load_steps=4 format=2]
 
 [ext_resource path="res://Scenes/Gameplay/BlockSpace/BlockSpace.tscn" type="PackedScene" id=1]
 [ext_resource path="res://Assets/Textures/BlockSpace/ferretwizardremake1.png" type="Texture" id=2]
+[ext_resource path="res://Assets/Textures/BlockSpace/ButtomThing.png" type="Texture" id=3]
 
 [node name="BlocikSpaceTesting" type="Node2D"]
 
 [node name="BlockSpace" parent="." instance=ExtResource( 1 )]
 position = Vector2( 816.905, 852.101 )
+BlockSpaceWidth = 1
 playernum = 1
 
 [node name="TextureRect" type="TextureRect" parent="."]
@@ -17,3 +19,8 @@ texture = ExtResource( 2 )
 __meta__ = {
 "_edit_use_anchors_": false
 }
+
+[node name="Sprite" type="Sprite" parent="."]
+position = Vector2( 974.439, 948.472 )
+z_index = 1
+texture = ExtResource( 3 )

@@ -9,12 +9,17 @@ var color : int
 #pixels to fall per call to _fall()
 var fallspeed : int = 4
 
-var swapspeed : int = 4
+var swapspeed : int = 8
+
+#pixels the block is off its y axis by (for correcting fall...
+#calculations when blocks are being pushed)
+var yoffset : int = 0
 
 #used to store block size (default 1x1)
 var width: int = 1
 var hight: int = 1
 
+var BlockSpaceHeight : int = 0
 
 #to store surrounding blocks
 var BlocksLEFT : Array = []
@@ -22,6 +27,9 @@ var BlocksRIGHT : Array = []
 var BlocksDOWN : Array = []
 var BlocksUP : Array = []
 
+#for fall detection to know if swapping is applicable
+var ULBlock 
+var URBlock
 
 #size of block in pixels (per previous unit eg ...
 # 1x1 block would be 64x64 in size by default)
@@ -31,6 +39,9 @@ var BlockSize : int = 0
 #To hold Block States, was not implemented when this project started
 #I am hopefully cleaning the mess now. 
 enum {
+	#has not been fully spawned yet.
+	UNBORN,
+	
 	#not moving or anything
 	IDLE,
 	#doing the gravity thing
@@ -43,12 +54,14 @@ enum {
 
 
 #to hold initial state.
-var state = IDLE
+var state = UNBORN
 
 
 #is gravity getting you down?
 var is_falling : bool = false
 
+#set to true as a block returns to idle
+var just_finished_swapping = false
 
 #one way ticket
 var timers_started : bool = false
@@ -67,16 +80,22 @@ func _get_state_string() -> String:
 	match int(state):
 		
 		0:
+			return("UNBORN")
+		1:
 			return("IDLE")
-		1: 
-			return ("FALLING")
 		2: 
-			return ("MATCHED")
+			return ("FALLING")
 		3: 
+			return ("MATCHED")
+		4: 
 			return ("SWAPPING")
 		_:
 			return("ERROR")
 
+
+#get offset from boardspace
+func _update_offset():
+	yoffset = get_parent().yoffset 
 
 #update labels with new strings
 func _update_labels(xlabel : String ,ylabel : String) -> void :
@@ -87,11 +106,14 @@ func _update_labels(xlabel : String ,ylabel : String) -> void :
 
 #ahhhhhhh...
 func _start_falling():
+	self.add_to_group("FALLING" + str(playernum))
 	state = FALLING
+	print(self.position.y)
 
 
 #hhhh!....splat
 func _stop_falling():
+	self.remove_from_group("FALLING" + str(playernum))
 	self.add_to_group("DoneFalling" + str(playernum))
 
 
@@ -107,6 +129,7 @@ func _start_idleing():
 
 #no going back from here
 func _start_matching():
+	self.add_to_group("MATCHED" + str(playernum))
 	state = MATCHED
 
 
@@ -118,11 +141,58 @@ func _dim():
 #block is not matched or swapping
 func _can_fall() -> bool:
 	#if matched or swapping
-	if timers_started or state == SWAPPING:
+	if timers_started or state == SWAPPING or position.y >= 0:
 		#cannot fall
 		return false
 	#can fall
 	return true
+
+
+#returns true if blocks below dont add up to itself.
+func _should_fallBackup() -> bool :
+	
+	if _can_fall():
+	
+		var sizebelow : int = 0
+		var block_y : int = self.position.y*-1
+		
+		_update_offset()
+
+		#loop through blocks below and increment sizebelow see if there is space
+		#between this blocks and 0 thats not blocks.
+		for Block in range(BlocksDOWN.size()-1,-1,-1):
+			
+			var Block2 = BlocksDOWN[Block]
+			
+			#Blocks Above Ground on at ground level
+			if Block2.position.y < 0:
+
+				#dont fall though paralized blocks	sizebelow reset here
+				if [MATCHED,SWAPPING].has(Block2.state) :
+					
+					#if (Block2.position.y * -1) + BlockSize > sizebelow:
+						sizebelow = (Block2.position.y * -1) + BlockSize
+		
+				#continue incrememnting normal block
+				else:
+					sizebelow = sizebelow + BlockSize
+			
+			#Block Below Ground
+			elif Block2.position.y == 0:
+				print("Thing")
+				sizebelow = sizebelow + BlockSize
+			
+
+			
+			
+		if sizebelow != block_y - yoffset :
+			print("True: ","SizeBelow:", sizebelow , " Block-Offset:", block_y - yoffset)
+			print("Yoffset:",yoffset, " : ",block_y)
+			return true
+		else:	
+			pass
+			
+	return false
 
 
 #returns true if blocks below dont add up to itself.
@@ -133,38 +203,22 @@ func _should_fall() -> bool :
 		var sizebelow : int = 0
 		var block_y : int = self.position.y*-1
 		
+		_update_offset()
 
-	
-		#loop through blocks below and increment sizebelow see if there is space
-		#between this blocks and 0 thats not blocks.
-		for Block in range(BlocksDOWN.size()-1,-1,-1):
-			
-			var Block2 = BlocksDOWN[Block]
-			
-			#dont fall though paralized blocks	sizebelow reset here
-			if Block2.state == MATCHED:
-				
-				#if (Block2.position.y * -1) + BlockSize > sizebelow:
-					sizebelow = (Block2.position.y * -1) + BlockSize
-					
-				
-			#continue incrememnting
-			else:
-				sizebelow = sizebelow + BlockSize
-				
-		
-		
-		if sizebelow != block_y :
+		if BlocksDOWN.size() * BlockSize != block_y - yoffset:
+			#should fall
 			return true
-
+	#should not fall
 	return false
 
 
 #returns true if not falling or matchign, or swapping
 func _can_match() -> bool:
 	if [SWAPPING,FALLING].has(state) or timers_started or is_falling :
+		#cannot match
 		return false
-	return true
+	#can match
+	return false
 
 
 #returns true or false depending on if in a match
@@ -414,11 +468,25 @@ func _get_neighbors()->void:
 		DownRay11.force_raycast_update()
 	var DBlock11 = DownRay11.get_collider()
 
+	if DBlock11 && DBlock10 != DBlock11:
+		DBlocks.append(DBlock11)
 
 	for DBlock in DBlocks :
 		#if block exists and it not already in list
 		if DBlock && BlocksDOWN.has(DBlock) == false:
-			BlocksDOWN.append(DBlock)
+			#if block is above ground.
+			if DBlock.position.y <= 0:
+				BlocksDOWN.append(DBlock)
+
+	#UP-LEFT	
+	var ULRay  = get_node("ULRay")
+	ULBlock = ULRay.get_collider()
+	
+	
+	#UP-RIGHT
+	var URRay  = get_node("URRay")
+	URBlock = URRay.get_collider()
+
 
 
 #turn the block invisible
@@ -429,6 +497,7 @@ func _on_DeathTimer_Timeout_():
 
 #destroy the block
 func _on_RealDeathTimer_Timeout_():
+	self.remove_from_group("MATCHED" + str(playernum))
 	queue_free()
 
 
@@ -468,9 +537,27 @@ func _start_death_timers():
 	RealDeathTimer.start()
 
 
-func can_swap() -> bool:
-	if state == IDLE:
-		return true
+func can_swap(Direction : bool) -> bool:
+	if state == IDLE && just_finished_swapping == false:
+		#going left
+		if Direction == false:
+			#if block exists
+			if ULBlock:
+				if ULBlock.state != FALLING:
+					return true
+			else: 
+				return true
+		
+
+		#going right
+		if Direction == true:
+			if URBlock:
+				if URBlock.state != FALLING:
+					return true
+			else:
+				return true
+	
+	
 	return false
 
 
@@ -494,15 +581,30 @@ func _keep_swapping():
 
 func _process(delta):
 	
+	#AUTO_KILL
+	if (self.position.y * -1) > BlockSize * (BlockSpaceHeight-1):
+		queue_free()
+	
 	#update lists of neighbors
-	_get_neighbors()
+	if [IDLE,FALLING].has(state):
+		_get_neighbors()
 	
 	#update state label for easier debug
-	_update_labels("0",_get_state_string())
+	_update_labels("Y:" + str(self.position.y),_get_state_string())
+
 
 		
 	match state:
 		
+		UNBORN: 
+			#block is below ground
+			if self.position.y > 0:
+				mySprite.modulate = Color(.41,.41,.41,0.5)
+			#block is level with ground
+			elif self.position.y <= 0:
+				state = IDLE
+				mySprite.modulate = Color(1,1,1,1)
+				
 		#this game should be called lazy blocks
 		#block could fall, swapped, or matched
 		IDLE:
@@ -547,11 +649,15 @@ func _process(delta):
 			#swapping is done, time to change state
 			if _is_done_swapping():
 				
+				
+				
 				#swapping to falling
 				if _should_fall():
 					_start_falling()
 				else:
 					_start_idleing()
+					just_finished_swapping = true
+					self.add_to_group("SwappingDone" + str(playernum))
 				
 
 
