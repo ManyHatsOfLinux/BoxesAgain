@@ -7,9 +7,9 @@
 [node name="BlocikSpaceTesting" type="Node2D"]
 
 [node name="BlockSpace" parent="." instance=ExtResource( 1 )]
-position = Vector2( 816.905, 852.101 )
-BlockSpaceWidth = 1
-playernum = 1
+position = Vector2( 394.493, 852.101 )
+StartingRows = 4
+playernum = 10
 
 [node name="TextureRect" type="TextureRect" parent="."]
 margin_right = 40.0
@@ -21,6 +21,10 @@ __meta__ = {
 }
 
 [node name="Sprite" type="Sprite" parent="."]
-position = Vector2( 974.439, 948.472 )
+position = Vector2( 562.28, 948.472 )
 z_index = 1
 texture = ExtResource( 3 )
+
+[node name="BlockSpace2" parent="." instance=ExtResource( 1 )]
+position = Vector2( 1291.84, 857.127 )
+playernum = 1

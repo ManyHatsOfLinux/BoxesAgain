@@ -8,6 +8,8 @@ var width : int = 0
 
 var playernum : int = 0 
 
+var BlockSize : int = 0
+
 onready var SnapNode = get_node("Snap")
 
 # Called when the node enters the scene tree for the first time.
@@ -27,7 +29,7 @@ func _update_labels(xlabel : String ,ylabel : String) -> void :
 
 func _input(ev):
 
-	if playernum == 1 :
+	if playernum == 1 or playernum == 10:
 
 		#UP
 			if Input.is_action_just_pressed("ui_up"):
@@ -103,3 +105,9 @@ func _input(ev):
 
 func _process(delta):
 	_update_labels(("X:" + str(xpos)),"Y:" + str(ypos) )
+
+	#drop cursor down 1 level if above boarder
+	if self.position.y < (BlockSize * -1) * (height-1):
+		print("Cursor At:",self.position.y)
+		ypos = ypos-1
+		

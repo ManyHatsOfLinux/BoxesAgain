@@ -93,6 +93,7 @@ func _get_state_string() -> String:
 			return("ERROR")
 
 
+
 #get offset from boardspace
 func _update_offset():
 	yoffset = get_parent().yoffset 
@@ -108,7 +109,6 @@ func _update_labels(xlabel : String ,ylabel : String) -> void :
 func _start_falling():
 	self.add_to_group("FALLING" + str(playernum))
 	state = FALLING
-	print(self.position.y)
 
 
 #hhhh!....splat
@@ -138,20 +138,13 @@ func _dim():
 	mySprite.modulate = Color(1,1,1,0.5)
 
 
-#block is not matched or swapping
-func _can_fall() -> bool:
-	#if matched or swapping
-	if timers_started or state == SWAPPING or position.y >= 0:
-		#cannot fall
-		return false
-	#can fall
-	return true
-
 
 #returns true if blocks below dont add up to itself.
-func _should_fallBackup() -> bool :
+func _should_fall() -> bool :
 	
-	if _can_fall():
+	#only bother checking for fall conditions
+	#if not matched, not swapping, or above ground.
+	if not timers_started or state != SWAPPING or position.y < 0:
 	
 		var sizebelow : int = 0
 		var block_y : int = self.position.y*-1
@@ -160,45 +153,42 @@ func _should_fallBackup() -> bool :
 
 		#loop through blocks below and increment sizebelow see if there is space
 		#between this blocks and 0 thats not blocks.
-		for Block in range(BlocksDOWN.size()-1,-1,-1):
-			
+		for Block in range(BlocksDOWN.size()):
 			var Block2 = BlocksDOWN[Block]
-			
+
 			#Blocks Above Ground on at ground level
-			if Block2.position.y < 0:
+			if Block2.position.y <= 0:
 
 				#dont fall though paralized blocks	sizebelow reset here
 				if [MATCHED,SWAPPING].has(Block2.state) :
-					
+
 					#if (Block2.position.y * -1) + BlockSize > sizebelow:
-						sizebelow = (Block2.position.y * -1) + BlockSize
-		
+						sizebelow = (Block2.position.y * -1) + BlockSize - yoffset
+
 				#continue incrememnting normal block
 				else:
 					sizebelow = sizebelow + BlockSize
-			
-			#Block Below Ground
-			elif Block2.position.y == 0:
-				print("Thing")
-				sizebelow = sizebelow + BlockSize
-			
 
 			
 			
 		if sizebelow != block_y - yoffset :
-			print("True: ","SizeBelow:", sizebelow , " Block-Offset:", block_y - yoffset)
-			print("Yoffset:",yoffset, " : ",block_y)
+			#print("True: ","SizeBelow:", sizebelow , " Block-Offset:", block_y - yoffset)
+			#print("Yoffset:",yoffset, "  Ypos:",block_y, " ")
+			#print("Size:",BlocksDOWN.size())
+			for x in BlocksDOWN:
+				#print( BlocksDOWN.find(x), " at Ypos: ",x.position.y)
+				pass
 			return true
-		else:	
-			pass
-			
+
+
 	return false
 
 
 #returns true if blocks below dont add up to itself.
-func _should_fall() -> bool :
+func _should_fallBackup() -> bool :
 	
-	if _can_fall():
+	#if matched or swapping
+	if not timers_started or state != SWAPPING or position.y < 0:
 	
 		var sizebelow : int = 0
 		var block_y : int = self.position.y*-1
@@ -206,6 +196,7 @@ func _should_fall() -> bool :
 		_update_offset()
 
 		if BlocksDOWN.size() * BlockSize != block_y - yoffset:
+			#print(BlocksDOWN.size())
 			#should fall
 			return true
 	#should not fall
@@ -214,11 +205,11 @@ func _should_fall() -> bool :
 
 #returns true if not falling or matchign, or swapping
 func _can_match() -> bool:
-	if [SWAPPING,FALLING].has(state) or timers_started or is_falling :
+	if [SWAPPING,FALLING,UNBORN].has(state) or timers_started or is_falling :
 		#cannot match
 		return false
 	#can match
-	return false
+	return true
 
 
 #returns true or false depending on if in a match
@@ -232,8 +223,8 @@ func _should_match() -> bool:
 		#two2left
 		#so long as at least two blocks are to the left.
 		if BlocksLEFT.size() > 1:
-			var LBlock1 = BlocksLEFT[0]
-			var LBlock2 = BlocksLEFT[1]
+			var LBlock1 = BlocksLEFT[BlocksLEFT.size() - 1]
+			var LBlock2 = BlocksLEFT[BlocksLEFT.size() - 2]
 			var Lpos1 = LBlock1.position.x
 			var Lpos2 = LBlock2.position.x
 			var selfpos = self.position.x
@@ -248,7 +239,7 @@ func _should_match() -> bool:
 		#both array's must have at least 1 block to check for this
 		if BlocksLEFT.size() >= 1 && BlocksRIGHT.size() >= 1 : 
 			
-			var LBlock = BlocksLEFT[0]
+			var LBlock = BlocksLEFT[BlocksLEFT.size() - 1]
 			var RBlock = BlocksRIGHT[0]
 			var Lpos = LBlock.position.x
 			var Rpos = RBlock.position.x
@@ -298,7 +289,7 @@ func _should_match() -> bool:
 		if BlocksUP.size() >= 1 && BlocksDOWN.size() >= 1 : 
 			
 			var UBlock = BlocksUP[0]
-			var DBlock = BlocksDOWN[0]
+			var DBlock = BlocksDOWN[BlocksDOWN.size() - 1]
 			var Upos = UBlock.position.y  * -1
 			var Dpos = DBlock.position.y  * -1
 			var selfpos = self.position.y * -1
@@ -312,8 +303,8 @@ func _should_match() -> bool:
 		#twobelow 
 		if BlocksDOWN.size() > 1 : 
 			
-			var DBlock1 = BlocksDOWN[0]
-			var DBlock2 = BlocksDOWN[1]
+			var DBlock1 = BlocksDOWN[BlocksDOWN.size() - 1]
+			var DBlock2 = BlocksDOWN[BlocksDOWN.size() - 2]
 			var Dpos1 = DBlock1.position.y  * -1
 			var Dpos2 = DBlock2.position.y  * -1
 			var selfpos = self.position.y   * -1
@@ -337,146 +328,52 @@ func _get_neighbors()->void:
 	BlocksUP    = []
 
 
-	#LEFT
-	var LeftRay1 = get_node("LeftRay1")
-	var LBlock1 = LeftRay1.get_collider()
-	var LeftRay2 = get_node("LeftRay2")
-	if LBlock1 :
-		LeftRay2.add_exception(LBlock1)
-		LeftRay2.force_raycast_update()
-	var LBlock2 = LeftRay2.get_collider()
+	#LEFT/RIGHT
+	var vBlocks = get_parent().verticalYBlocks
 	
-	for LBlock in [LBlock1,LBlock2] :
-		if LBlock:
-			BlocksLEFT.append(LBlock)
-	
-	
-	#RIGHT
-	var RightRay1 = get_node("RightRay1")
-	var RBlock1 = RightRay1.get_collider()
-	
-	var RightRay2 = get_node("RightRay2")
-	if RBlock1 :
-		RightRay2.add_exception(RBlock1)
-		RightRay2.force_raycast_update()
-	var RBlock2 = RightRay2.get_collider()
+	for x in range(vBlocks.size()):
+		
+		#block was found on list
+		var searchResult = vBlocks[x].find(self)
+		#if block is contained in array
+		if searchResult != -1:
+			
+			#print(vBlocks[x])
+			#add left blocks to BlocksLEFT
+			for z in vBlocks[x]:
+				#if block xpos in list is less that self, 
+				#the block is left of this one. 
+				if z.position.x < self.position.x:
+					BlocksLEFT.append(z)
+				elif z.position.x > self.position.x:
+					BlocksRIGHT.append(z)
 
-	for RBlock in [RBlock1,RBlock2] :
-		if RBlock:
-			BlocksRIGHT.append(RBlock)
-	
-	
-	#UP
-	var UpRay1 = get_node("UpRay1")
-	var UBlock1 = UpRay1.get_collider()
-	var UpRay2 = get_node("UpRay2")
-	if UBlock1 :
-		UpRay2.add_exception(UBlock1)
-		UpRay2.force_raycast_update()
-	var UBlock2 = UpRay2.get_collider()
-	
-	for UBlock in [UBlock1,UBlock2] :
-		if UBlock:
-			BlocksUP.append(UBlock)
-	
-	
-	#DOWN
-	var DownRay1  = get_node("DownRay1")
-	var DownRay2  = get_node("DownRay2")
-	var DownRay3  = get_node("DownRay3")
-	var DownRay4  = get_node("DownRay4")
-	var DownRay5  = get_node("DownRay5")
-	var DownRay6  = get_node("DownRay6")
-	var DownRay7  = get_node("DownRay7")
-	var DownRay8  = get_node("DownRay8")
-	var DownRay9  = get_node("DownRay9")
-	var DownRay10 = get_node("DownRay10")
-	var DownRay11 = get_node("DownRay11")
-	
-	var DBlocks : Array = []
-	
-	var DBlock1 = DownRay1.get_collider()
-	
-	if DBlock1 :
-		DBlocks.append(DBlock1)
-		for DBlock in DBlocks:
-			DownRay2.add_exception(DBlock)
-		DownRay2.force_raycast_update()
-	var DBlock2 = DownRay2.get_collider()
-	
-	
-	if DBlock2 && DBlock1 != DBlock2:
-		DBlocks.append(DBlock2)
-		for DBlock in DBlocks:
-			DownRay3.add_exception(DBlock)
-		DownRay3.force_raycast_update()
-	var DBlock3 = DownRay3.get_collider()
 
-	if DBlock3 && DBlock2 != DBlock3:
-		DBlocks.append(DBlock3)
-		for DBlock in DBlocks:
-			DownRay4.add_exception(DBlock)
-		DownRay4.force_raycast_update()
-	var DBlock4 = DownRay4.get_collider()
-
-	if DBlock4 && DBlock3 != DBlock4:
-		DBlocks.append(DBlock4)
-		for DBlock in DBlocks:
-			DownRay5.add_exception(DBlock)
-		DownRay5.force_raycast_update()
-	var DBlock5 = DownRay5.get_collider()
-
-	if DBlock5 && DBlock4 != DBlock5:
-		DBlocks.append(DBlock5)
-		for DBlock in DBlocks:
-			DownRay6.add_exception(DBlock)
-		DownRay6.force_raycast_update()
-	var DBlock6 = DownRay6.get_collider()
-
-	if DBlock6 && DBlock5 != DBlock6:
-		DBlocks.append(DBlock6)
-		for DBlock in DBlocks:
-			DownRay7.add_exception(DBlock)
-		DownRay7.force_raycast_update()
-	var DBlock7 = DownRay7.get_collider()
-
-	if DBlock7 && DBlock6 != DBlock7:
-		DBlocks.append(DBlock7)
-		for DBlock in DBlocks:
-			DownRay8.add_exception(DBlock)
-		DownRay8.force_raycast_update()
-	var DBlock8 = DownRay8.get_collider()
+	#UP/DOWN
+	var hBlocks = get_parent().horizontalXBlocks
 	
-	if DBlock8 && DBlock7 != DBlock8:
-		DBlocks.append(DBlock8)
-		for DBlock in DBlocks:
-			DownRay9.add_exception(DBlock)
-		DownRay9.force_raycast_update()
-	var DBlock9 = DownRay9.get_collider()
+	for x in range(hBlocks.size()):
+		
+		#block was found on list
+		var searchResult = hBlocks[x].find(self)
+		#if block is contained in array
+		if searchResult != -1:
+			
+			#print(vBlocks[x])
+			#add left blocks to BlocksLEFT
+			for z in hBlocks[x]:
+				#if block ypos in list is less than self, 
+				#the block is higher than this one. 
+				if z.position.y < self.position.y:
+					BlocksUP.append(z)
+				elif z.position.y > self.position.y:
+					if BlocksDOWN.has(z):
+						print("ERROROROROR")
+					BlocksDOWN.append(z)
+	
 
-	if DBlock9 && DBlock8 != DBlock9:
-		DBlocks.append(DBlock9)
-		for DBlock in DBlocks:
-			DownRay10.add_exception(DBlock)
-		DownRay10.force_raycast_update()
-	var DBlock10 = DownRay10.get_collider()
 
-	if DBlock10 && DBlock9 != DBlock10:
-		DBlocks.append(DBlock10)
-		for DBlock in DBlocks:
-			DownRay11.add_exception(DBlock)
-		DownRay11.force_raycast_update()
-	var DBlock11 = DownRay11.get_collider()
 
-	if DBlock11 && DBlock10 != DBlock11:
-		DBlocks.append(DBlock11)
-
-	for DBlock in DBlocks :
-		#if block exists and it not already in list
-		if DBlock && BlocksDOWN.has(DBlock) == false:
-			#if block is above ground.
-			if DBlock.position.y <= 0:
-				BlocksDOWN.append(DBlock)
 
 	#UP-LEFT	
 	var ULRay  = get_node("ULRay")
@@ -498,7 +395,7 @@ func _on_DeathTimer_Timeout_():
 #destroy the block
 func _on_RealDeathTimer_Timeout_():
 	self.remove_from_group("MATCHED" + str(playernum))
-	queue_free()
+	self.add_to_group("DED" + str(playernum))
 
 
 #blocks turns invisible after time, dies after RealTime
@@ -566,34 +463,42 @@ func start_swapping(NewSwapDirection : bool) -> void:
 		SwapDirection = NewSwapDirection
 
 func _is_done_swapping() -> bool:
-	if int(self.position.x) % BlockSize == 0:
+	if int(self.mySprite.position.x) % BlockSize == 0:
 		return true
 	return false
+
+func _exit_swapping():
+	#hold position of sprite
+	var newpos = Vector2(self.mySprite.global_position)
+	#set sprite back to parent
+	self.mySprite.position = Vector2(0,0)
+	#set postion to postion sprite used to be.
+	self.global_position = newpos
 
 func _keep_swapping():
 	#going left
 	if SwapDirection == bool(0):
-		self.position = Vector2(self.position.x - swapspeed ,self.position.y)
+		self.mySprite.position = Vector2(self.mySprite.position.x - swapspeed ,self.mySprite.position.y)
 	#going right
 	else: 
-		self.position = Vector2(self.position.x + swapspeed ,self.position.y)
+		self.mySprite.position = Vector2(self.mySprite.position.x + swapspeed ,self.mySprite.position.y)
 
 
 func _process(delta):
 	
 	#AUTO_KILL
-	if (self.position.y * -1) > BlockSize * (BlockSpaceHeight-1):
+	if (self.position.y * -1) > BlockSize * (BlockSpaceHeight-1) \
+	or (self.position.y * -1) < (BlockSize * -1):
 		queue_free()
 	
-	#update lists of neighbors
-	if [IDLE,FALLING].has(state):
-		_get_neighbors()
+
+	_get_neighbors()
 	
 	#update state label for easier debug
 	_update_labels("Y:" + str(self.position.y),_get_state_string())
 
 
-		
+
 	match state:
 		
 		UNBORN: 
@@ -604,7 +509,8 @@ func _process(delta):
 			elif self.position.y <= 0:
 				state = IDLE
 				mySprite.modulate = Color(1,1,1,1)
-				
+		
+		
 		#this game should be called lazy blocks
 		#block could fall, swapped, or matched
 		IDLE:
@@ -649,17 +555,15 @@ func _process(delta):
 			#swapping is done, time to change state
 			if _is_done_swapping():
 				
-				
+				#reset postion to match sprite movement
+				_exit_swapping()
 				
 				#swapping to falling
 				if _should_fall():
 					_start_falling()
+					
 				else:
 					_start_idleing()
 					just_finished_swapping = true
 					self.add_to_group("SwappingDone" + str(playernum))
 				
-
-
-
-

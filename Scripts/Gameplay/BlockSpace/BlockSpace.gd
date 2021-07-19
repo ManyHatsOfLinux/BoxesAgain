@@ -25,6 +25,7 @@ enum {
 	DEAD
 }
 
+
 var state = HALTED
 
 var fps : float = 0
@@ -41,16 +42,21 @@ var yoffset : int = 0
 
 
 #pixels to push with every call to _push()
-export (int) var PushSpeed = 1
+export (int) var PushPixels = 1
+
 
 var BlockParent = preload("res://Scenes/Gameplay/BlockSpace/Block.tscn")
 
+
 onready var FPSLabel = get_node("FPSCount")   
+
 
 var ParaliyzedBlocks : Array = []
 
+
 onready var cursorScene = preload("res://Scenes/Gameplay/BlockSpace/cursor.tscn")
 var xcursor
+
 
 #for the different Block Types
 var BlockTextures = [
@@ -62,6 +68,15 @@ var BlockTextures = [
 	preload("res://Assets/Textures/Blocks/Yellow Piece.png"),
 	preload("res://Assets/Textures/Blocks/Black Piece.png")
 ]
+
+
+
+#to hold lists of blocks to be searched
+#for neighboring blocks by blocks
+#ACCESSED BY CHILDREN!
+var horizontalXBlocks : Array = []
+var verticalYBlocks   : Array = []
+
 
 
 #for sorting blocks later
@@ -82,7 +97,8 @@ class BlockSort:
 		#block was higher.
 		else: 
 			return false
-		
+
+
 	static func sort_buttom_to_top_left_to_right(block1,block2):
 		#if block is lower 
 		if block1.position.y > block2.position.y :
@@ -134,16 +150,24 @@ func _spawn_cursor():
 	xcursor.height = BlockSpaceHeight
 	
 	xcursor.position=Vector2(xpos,ypos)
+	xcursor.BlockSize = BlockSize
 	
 	add_child(xcursor)
+
 
 #update cursor location
 func _update_cursor_position():
 	
+
+	
+	
+	
 	var xpos = (xcursor.xpos * BlockSize) + (BlockSize/2)
 	var ypos = (xcursor.ypos * BlockSize) * -1
 	
-	xcursor.position=Vector2(xpos,ypos)
+	xcursor.position=Vector2(xpos,ypos-yoffset)
+
+
 
 #to spawn blocks
 func _spawn_block(x: int, y: int, color: int) -> void:
@@ -200,58 +224,48 @@ func _stop_swapping_blocks():
 		Block.just_finished_swapping = false
 
 
-#returns 4 arrays, LEFT, DOWN, RIGHT, UP...like Vice the City weapons cheat.
-func get_surrounding_blocks(Block) -> Array:
+func _kill_ded_blocks():
+	for Block in get_tree().get_nodes_in_group("DED"+ str(playernum)):
+		Block.remove_from_group("DED"+ str(playernum))
+		Block.remove_from_group("Blocks" + str(playernum))
+		Block.queue_free()
+
+
+#generate horizonal and vertical lists of blocks for neighbor checking 
+func _update_rows_and_columns():
 	#store all blocks in array
 	var BlockList = (get_tree().get_nodes_in_group("Blocks" + str(playernum)))
 	BlockList.sort_custom(BlockSort, "sort_buttom_to_top_left_to_right")
-
-	#to store surrounding blocks
-	var BlocksLEFT : Array = []
-	var BlocksRIGHT : Array = []
-	var BlocksDOWN : Array = []
-	var BlocksUP : Array = []
-
 	
-
-	#Loop through all blocks getting compairing x/y values to determine 
-	#relative location
-	for Block2 in BlockList:
+	if BlockList.size() > 0:
 		
-		#if not self
-		if Block2 != self:
+		#2d array of rows
+		horizontalXBlocks = []
+
+		#2d array of columns
+		verticalYBlocks = []
+		
+		for x in range(BlockSpaceHeight+1):
+			horizontalXBlocks.append([])
+		
+		for x in range(BlockSpaceHeight+1):
+			verticalYBlocks.append([])
+		
+		
+		for Block in BlockList:
 			
-			#If on same X axis, check for up/down
-			if Block.position.x == Block2.position.x :
+			var xindex : int =(Block.position.x/BlockSize)
+			var yindex : int =((Block.position.y* -1)/BlockSize)
 			
-				#DOWN
-				#if block2 y position value is higher, its lower on screen.
-				if Block.position.y < Block2.position.y:
-					BlocksDOWN.append(Block2)
-				
-				#UP
-				#and the inverse it also true. 
-				elif Block2.position.y < Block.position.y: 
-					BlocksUP.append(Block2)
+			#there is always a row of blocks under the ground, so offset
+			#by blocksize so -1 index is 0
+			xindex=xindex+1
+			yindex=yindex+1
 			
-			#if on same Y axis, check for left/right
-			elif Block.position.y == Block2.position.y:
-				
-				#LEFT
-				#if block2 x position is lower, its further to the left
-				if Block2.position.x < Block.position.x:
-					BlocksLEFT.append(Block2)
-				
-				#RIGHT
-				if Block2.position.x > Block.position.x:
-					BlocksRIGHT.append(Block2)
-	
-	#sort the array when we are done with them.
-	for xArray in [BlocksLEFT,BlocksDOWN,BlocksRIGHT,BlocksUP]:
-		xArray.sort_custom(BlockSort, "sort_buttom_to_top_left_to_right")
-				
-				
-	return([BlocksLEFT,BlocksDOWN,BlocksRIGHT,BlocksUP])
+
+			horizontalXBlocks[xindex].append(Block)
+			verticalYBlocks[yindex].append(Block)
+			
 
 
 func _update_paraliyed_list() -> void:
@@ -272,7 +286,6 @@ func _update_paraliyed_list() -> void:
 			previous_paralized_size = current_paralized_size
 		current_paralized_size = ParaliyzedBlocks.size()
 
-
 func _is_anything_matching() -> bool:
 	if get_tree().get_nodes_in_group("MATCHED" + str(playernum)).size() > 0 :
 		return true
@@ -288,24 +301,28 @@ func _can_push()-> bool:
 		return false
 	return true
 
-#loop through all blocks and push up by PushSpeed pixels upward
+
+
+#loop through all blocks and push up by PushPixels upward
 func _push():
 	
 	var BlockList = (get_tree().get_nodes_in_group("Blocks" + str(playernum)))
 	
 	for Block in BlockList:
-		Block.position = Vector2(Block.position.x,Block.position.y - PushSpeed)
-	
-	yoffset = yoffset + PushSpeed
+		Block.position = Vector2(Block.position.x,Block.position.y - PushPixels)
 
-	if yoffset == 64:
-		_spawn_row()
+
+	yoffset = yoffset + PushPixels
 
 	#reset yoffset
 	if yoffset == BlockSize: 
 		yoffset = 0
-
-
+		#adjust cursor everytime offset resets
+		xcursor.ypos = xcursor.ypos+1
+		
+		if playernum != 10:
+			_spawn_row()
+		#print("Spawn")
 
 
 # Called when the node enters the scene tree for the first time.
@@ -316,10 +333,14 @@ func _ready():
 
 	_spawn_cursor()
 	
-	if playernum == 1:
-		_spawn_block(0,0,0)
-
-		_spawn_block(0,-1,1)
+	if playernum == 10:
+		_spawn_block(0,0,1)
+		_spawn_block(0,1,0)
+		_spawn_block(0,2,0)
+		_spawn_block(0,3,0)
+		_spawn_block(0,4,1)
+		_spawn_block(0,5,1)
+		#_spawn_block(0,-1,1)
 	
 		#_spawn_row()
 
@@ -331,15 +352,19 @@ func _ready():
 		#_spawn_block(3,1,0)	
 		#_spawn_block(4,1,0)	
 	
-	if playernum == 2:
+	if playernum == 1:
 		_spawn_starting_blocks()
 		_spawn_row()
 
 
-func _process(delta):
+	_update_rows_and_columns()
 
+func _process(delta):
+	#print("BordFrame")
 	#ensure list of paralyized blocks ais up to date
 	_update_paraliyed_list()
+	
+	_update_rows_and_columns()
 
 	_update_cursor_position()
 
@@ -347,12 +372,16 @@ func _process(delta):
 
 	_stop_swapping_blocks()
 
+	_kill_ded_blocks()
+
+
+
 	match state:
 		
 		
 		HALTED:
 			#halted to push
-			if _can_push():
+			if _can_push() && playernum != 10:
 				_push()
 				pass
 			pass
